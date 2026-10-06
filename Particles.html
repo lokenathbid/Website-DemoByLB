@@ -5,19 +5,30 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hand-Tracked 3D Particle Morphing</title>
     <style>
-        body { margin: 0; overflow: hidden; background-color: #000; font-family: sans-serif; }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            overflow: hidden;
+            background:
+                radial-gradient(ellipse at 50% 42%, rgba(22, 48, 88, 0.28), transparent 52%),
+                #050712;
+            color: #f5f7ff;
+            font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
         canvas { display: block; }
         #video-container {
             position: absolute;
-            top: 10px;
-            left: 10px;
-            width: 160px;
-            height: 120px;
+            top: 20px;
+            left: 20px;
+            width: 176px;
+            height: 132px;
             z-index: 10;
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            border-radius: 8px;
+            border: 1px solid rgba(171, 203, 255, 0.35);
+            border-radius: 16px;
             overflow: hidden;
-            transform: scaleX(-1); /* Mirror the video preview */
+            transform: scaleX(-1);
+            box-shadow: 0 12px 36px rgba(0, 0, 0, 0.35), 0 0 24px rgba(91, 128, 255, 0.12);
+            background: #101525;
         }
         #video {
             width: 100%;
@@ -26,18 +37,109 @@
         }
         #ui {
             position: absolute;
-            top: 10px;
-            right: 10px;
-            color: white;
-            background: rgba(0, 0, 0, 0.6);
-            padding: 15px;
-            border-radius: 8px;
+            top: 20px;
+            right: 20px;
+            color: #f5f7ff;
+            background: rgba(12, 16, 32, 0.68);
+            border: 1px solid rgba(176, 191, 255, 0.18);
+            backdrop-filter: blur(18px);
+            -webkit-backdrop-filter: blur(18px);
+            padding: 18px 20px;
+            border-radius: 18px;
             pointer-events: none;
             text-align: right;
+            box-shadow: 0 12px 36px rgba(0, 0, 0, 0.24);
         }
-        h1 { font-size: 1.2rem; margin: 0 0 5px 0; }
-        p { font-size: 0.9rem; margin: 0; opacity: 0.8; }
-        .status { margin-top: 10px; font-weight: bold; color: #00ff88; }
+        h1 { font-size: 1.08rem; letter-spacing: 0.02em; margin: 0 0 9px; }
+        #ui p { font-size: 0.79rem; line-height: 1.5; margin: 0; color: #bac4df; }
+        #ui p.current-shape { margin-top: 9px; color: #e8eaff; }
+        #shape-name { color: #aeb8ff; font-weight: 700; }
+        .status { margin-top: 12px; font-size: 0.76rem; font-weight: 700; color: #77f2c2; }
+        .shape-picker {
+            position: absolute;
+            z-index: 10;
+            left: 50%;
+            bottom: 22px;
+            transform: translateX(-50%);
+            width: min(680px, calc(100vw - 40px));
+            padding: 16px;
+            border: 1px solid rgba(177, 190, 255, 0.2);
+            border-radius: 22px;
+            background: linear-gradient(135deg, rgba(18, 23, 43, 0.88), rgba(12, 16, 31, 0.78));
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.38), 0 0 42px rgba(99, 109, 255, 0.1);
+            backdrop-filter: blur(22px);
+            -webkit-backdrop-filter: blur(22px);
+        }
+        .picker-heading {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin: 0 2px 12px;
+        }
+        .picker-title { margin: 0; font-size: 0.8rem; font-weight: 750; letter-spacing: 0.12em; text-transform: uppercase; color: #dce2ff; }
+        .picker-hint { margin: 0; color: #8d98b8; font-size: 0.72rem; }
+        .shape-options { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+        .shape-option {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 0;
+            padding: 10px 12px;
+            border: 1px solid rgba(171, 185, 230, 0.12);
+            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.035);
+            color: #b8c0d9;
+            font: inherit;
+            text-align: left;
+            cursor: pointer;
+            transition: transform 180ms ease, color 180ms ease, border-color 180ms ease, background 180ms ease, box-shadow 180ms ease;
+        }
+        .shape-option:hover {
+            transform: translateY(-2px);
+            color: #fff;
+            border-color: rgba(164, 174, 255, 0.45);
+            background: rgba(118, 127, 255, 0.12);
+        }
+        .shape-option:focus-visible { outline: 2px solid #aab3ff; outline-offset: 2px; }
+        .shape-option[aria-pressed="true"] {
+            color: #fff;
+            border-color: rgba(154, 163, 255, 0.82);
+            background: linear-gradient(135deg, rgba(112, 105, 255, 0.3), rgba(59, 195, 221, 0.13));
+            box-shadow: inset 0 0 0 1px rgba(194, 198, 255, 0.12), 0 0 22px rgba(109, 111, 255, 0.16);
+        }
+        .shape-icon {
+            display: grid;
+            flex: 0 0 34px;
+            width: 34px;
+            height: 34px;
+            place-items: center;
+            border-radius: 11px;
+            background: rgba(161, 171, 255, 0.1);
+            font-size: 1.1rem;
+        }
+        .shape-option[aria-pressed="true"] .shape-icon { background: rgba(184, 190, 255, 0.2); }
+        .shape-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.82rem; font-weight: 650; }
+        @media (max-width: 620px) {
+            #video-container { top: 12px; left: 12px; width: 112px; height: 84px; border-radius: 12px; }
+            #ui { top: 12px; right: 12px; padding: 12px 14px; border-radius: 14px; }
+            h1 { font-size: 0.92rem; margin-bottom: 5px; }
+            #ui p { font-size: 0.68rem; }
+            #ui p.current-shape { margin-top: 5px; }
+            .status { margin-top: 7px; font-size: 0.68rem; }
+            .shape-picker { bottom: 12px; width: calc(100vw - 24px); padding: 12px; border-radius: 18px; }
+            .picker-heading { margin-bottom: 9px; }
+            .picker-title { font-size: 0.72rem; }
+            .picker-hint { font-size: 0.64rem; }
+            .shape-options { gap: 6px; }
+            .shape-option { flex-direction: column; justify-content: center; gap: 5px; padding: 8px 4px; border-radius: 12px; }
+            .shape-icon { flex-basis: 30px; width: 30px; height: 30px; border-radius: 9px; font-size: 1rem; }
+            .shape-label { max-width: 100%; font-size: 0.66rem; }
+        }
+        @media (max-width: 380px) {
+            .picker-hint { display: none; }
+            .shape-label { font-size: 0.61rem; }
+        }
     </style>
 </head>
 <body>
@@ -45,13 +147,30 @@
         <video id="video" playsinline></video>
     </div>
 
-    <div id="ui">
+    <div id="ui" aria-live="polite">
         <h1>Particle Morpher</h1>
-        <p>🖐 Move hand to control position</p>
-        <p>👌 Pinch (Thumb+Index) to Expand</p>
-        <p>Current Shape: <span id="shape-name">Sphere</span></p>
+        <p>🖐 Move hand to guide particles</p>
+        <p>👌 Pinch to expand the shape</p>
+        <p class="current-shape">Selected: <span id="shape-name">Sphere</span></p>
         <div id="loading" class="status">Loading AI Model...</div>
     </div>
+
+    <section class="shape-picker" aria-label="Choose a particle shape">
+        <div class="picker-heading">
+            <h2 class="picker-title">Choose your form</h2>
+            <p class="picker-hint">Select a shape to morph the particles</p>
+        </div>
+        <div class="shape-options">
+            <button class="shape-option" type="button" data-shape="sphere" aria-pressed="true"><span class="shape-icon" aria-hidden="true">◉</span><span class="shape-label">Sphere</span></button>
+            <button class="shape-option" type="button" data-shape="heart" aria-pressed="false"><span class="shape-icon" aria-hidden="true">♥</span><span class="shape-label">Heart</span></button>
+            <button class="shape-option" type="button" data-shape="saturn" aria-pressed="false"><span class="shape-icon" aria-hidden="true">🪐</span><span class="shape-label">Saturn</span></button>
+            <button class="shape-option" type="button" data-shape="flower" aria-pressed="false"><span class="shape-icon" aria-hidden="true">✿</span><span class="shape-label">Flower</span></button>
+            <button class="shape-option" type="button" data-shape="galaxy" aria-pressed="false"><span class="shape-icon" aria-hidden="true">✧</span><span class="shape-label">Galaxy</span></button>
+            <button class="shape-option" type="button" data-shape="torus" aria-pressed="false"><span class="shape-icon" aria-hidden="true">◌</span><span class="shape-label">Torus</span></button>
+            <button class="shape-option" type="button" data-shape="cube" aria-pressed="false"><span class="shape-icon" aria-hidden="true">⬡</span><span class="shape-label">Cube</span></button>
+            <button class="shape-option" type="button" data-shape="diamond" aria-pressed="false"><span class="shape-icon" aria-hidden="true">◇</span><span class="shape-label">Diamond</span></button>
+        </div>
+    </section>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
@@ -77,9 +196,6 @@
         let expansionFactor = 0; // 0 = normal, 1 = fully expanded
         let isHandDetected = false;
         let currentShape = 'sphere';
-        const shapes = ['sphere', 'heart', 'saturn', 'flower'];
-        let shapeIndex = 0;
-
         // --- SHAPE MATH FORMULAS ---
         const MathUtils = {
             sphere: (i) => {
@@ -136,6 +252,50 @@
                     x: r * Math.sin(v) * Math.cos(u),
                     y: r * Math.sin(v) * Math.sin(u),
                     z: r * Math.cos(v)
+                };
+            },
+            galaxy: (i) => {
+                const arm = Math.floor(Math.random() * 3);
+                const radius = Math.sqrt(Math.random()) * 4.2;
+                const angle = radius * 1.35 + arm * (Math.PI * 2 / 3) + (Math.random() - 0.5) * 0.45;
+                return {
+                    x: Math.cos(angle) * radius,
+                    y: (Math.random() - 0.5) * (0.18 + radius * 0.08),
+                    z: Math.sin(angle) * radius
+                };
+            },
+            torus: (i) => {
+                const angle = Math.random() * Math.PI * 2;
+                const tubeAngle = Math.random() * Math.PI * 2;
+                const majorRadius = 2.35;
+                const minorRadius = 0.72;
+                const ring = majorRadius + minorRadius * Math.cos(tubeAngle);
+                return {
+                    x: ring * Math.cos(angle),
+                    y: minorRadius * Math.sin(tubeAngle),
+                    z: ring * Math.sin(angle)
+                };
+            },
+            cube: (i) => {
+                const face = Math.floor(Math.random() * 6);
+                const x = (Math.random() - 0.5) * 4;
+                const y = (Math.random() - 0.5) * 4;
+                const z = (Math.random() - 0.5) * 4;
+                return {
+                    x: face < 2 ? (face === 0 ? -2 : 2) : x,
+                    y: face >= 2 && face < 4 ? (face === 2 ? -2 : 2) : y,
+                    z: face >= 4 ? (face === 4 ? -2 : 2) : z
+                };
+            },
+            diamond: (i) => {
+                const y = (Math.random() * 2 - 1) * 2.8;
+                const taper = 1 - Math.abs(y) / 3.1;
+                const angle = Math.random() * Math.PI * 2;
+                const radius = (0.25 + Math.random() * 1.65) * taper;
+                return {
+                    x: Math.cos(angle) * radius,
+                    y,
+                    z: Math.sin(angle) * radius
                 };
             }
         };
@@ -206,15 +366,19 @@
 
             window.addEventListener('resize', onWindowResize, false);
             
-            // Start changing shapes automatically every 5 seconds
-            setInterval(cycleShape, 5000);
         }
 
-        function cycleShape() {
-            shapeIndex = (shapeIndex + 1) % shapes.length;
-            currentShape = shapes[shapeIndex];
-            document.getElementById('shape-name').innerText = currentShape.charAt(0).toUpperCase() + currentShape.slice(1);
-            
+        function selectShape(shapeName) {
+            if (!Object.prototype.hasOwnProperty.call(MathUtils, shapeName)) {
+                throw new Error(`Unknown particle shape: ${shapeName}`);
+            }
+
+            currentShape = shapeName;
+            document.getElementById('shape-name').innerText = shapeName.charAt(0).toUpperCase() + shapeName.slice(1);
+            document.querySelectorAll('.shape-option').forEach((button) => {
+                const isSelected = button.dataset.shape === shapeName;
+                button.setAttribute('aria-pressed', String(isSelected));
+            });
             calculateTargetPositions(currentShape);
         }
 
@@ -383,6 +547,10 @@
 
         // --- BOOTSTRAP ---
         initThree();
+        document.querySelectorAll('.shape-option').forEach((button) => {
+            button.addEventListener('click', () => selectShape(button.dataset.shape));
+        });
+        selectShape(currentShape);
         initMediaPipe();
         animate();
 
